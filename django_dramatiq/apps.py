@@ -76,6 +76,18 @@ class DjangoDramatiqConfig(AppConfig):
             middleware.append(results_middleware)
 
         broker = broker_class(middleware=middleware, **broker_options)
+
+        if self.apm_scout_enabled():
+            scout_middleware_class = import_string('scout_apm.dramatiq.ScoutMiddleware')
+            scout_config_class = import_string('scout_apm.api.Config')
+
+            scout_config_class.set(
+                key=getattr(settings, "SCOUT_KEY"),
+                name=getattr(settings, "SCOUT_NAME"),
+                monitor=getattr(settings, "SCOUT_MONITOR"),
+            )
+            broker.add_middleware(scout_middleware_class(), before=broker.middleware[0].__class__)
+
         dramatiq.set_broker(broker)
 
     @property
@@ -119,3 +131,7 @@ class DjangoDramatiqConfig(AppConfig):
     def select_encoder(cls):
         encoder = getattr(settings, "DRAMATIQ_ENCODER", DEFAULT_ENCODER)
         return import_string(encoder)()
+
+    @classmethod
+    def apm_scout_enabled(cls):
+        return getattr(settings, "DRAMATIQ_APM_SCOUT_ENABLED", False)
